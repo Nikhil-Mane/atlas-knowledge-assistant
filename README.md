@@ -105,6 +105,8 @@ Multiply by your Azure prices; `bulk_ingest.py --dry-run` and `/stats` give real
 
 The diagram renders on GitHub and in VS Code (with the *Markdown Preview Mermaid Support* extension).
 
+**Interactive version:** [docs/dataflow.html](docs/dataflow.html) animates ten scenarios step by step (ingesting a PDF, a scan, a duplicate and an email; answering, follow-ups, cache hits, small talk, prompt injection and "not found"). It is one self-contained file: download it and open it in any browser, or publish it with GitHub Pages.
+
 ```mermaid
 flowchart TB
   subgraph CLIENTS["Clients"]
