@@ -1,0 +1,69 @@
+# CPU parse workers, autoscaled by KEDA on the length of the Redis queue.
+# Capacity: Docling ~2.5 s/page on one laptop core. 10K docs/day x 15 pages
+# needs ~6 busy workers on average and up to ~27 during a 5x peak.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-parse
+  labels: {app: worker-parse}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: worker-parse}
+  template:
+    metadata:
+      labels: {app: worker-parse}
+    spec:
+      terminationGracePeriodSeconds: 600      # let a long document finish (acks are late anyway)
+      containers:
+        - name: worker
+          image: node-rag
+          command: ["celery", "-A", "rag.worker", "worker", "-Q", "parse_cpu",
+                    "--concurrency", "1", "--loglevel", "INFO"]
+          envFrom:
+            - configMapRef: {name: rag-config}
+            - secretRef: {name: rag-secrets}
+          env:
+            - {name: OMP_NUM_THREADS, value: "2"}     # match the CPU request: no oversubscription
+          resources:
+            requests: {cpu: "2", memory: 2Gi}
+            limits: {memory: 4Gi}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 5Gi}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-parse
+spec:
+  scaleTargetRef: {name: worker-parse}
+  minReplicaCount: 2
+  maxReplicaCount: 30
+  cooldownPeriod: 600
+  triggers:
+    - type: redis
+      metadata:
+        listName: parse_cpu
+        listLength: "4"                 # one more worker per 4 waiting documents
+      authenticationRef: {name: redis-auth}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-auth
+spec:
+  secretTargetRef:
+    - {parameter: address, name: rag-secrets, key: REDIS_ADDRESS}
+    - {parameter: password, name: rag-secrets, key: REDIS_PASSWORD}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker-parse
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels: {app: worker-parse}

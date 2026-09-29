@@ -1,0 +1,31 @@
+NODE.JS SECURITY CHECKLIST
+Internal engineering note - review before every production release
+
+1. Dependencies
+   - Run "npm audit" in CI and fail the build on high or critical issues.
+   - Commit package-lock.json and install with "npm ci" for reproducible builds.
+   - Remove unused packages; every dependency is attack surface.
+
+2. Secrets
+   - Never commit .env files. Load secrets from environment variables or a vault.
+   - Rotate API keys and database passwords at least every 90 days.
+
+3. HTTP hardening
+   - Add security headers with the "helmet" middleware.
+   - Rate-limit login and password-reset routes (for example 5 attempts per minute per IP).
+   - Set cookies with httpOnly, secure and sameSite=strict.
+
+4. Input handling
+   - Validate every request body with a schema (zod or joi).
+   - Use parameterized queries; never build SQL with string concatenation.
+   - Avoid eval(), new Function() and child_process.exec() with user input.
+     Prefer execFile() with an argument array.
+
+5. Runtime
+   - Run the process as a non-root user inside the container.
+   - Use only Node.js versions in Active or Maintenance LTS; end-of-life
+     versions receive no security patches.
+   - The experimental permission model ("--permission") can restrict
+     file system and child process access.
+
+Owner: Platform team

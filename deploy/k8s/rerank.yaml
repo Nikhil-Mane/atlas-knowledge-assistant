@@ -1,0 +1,59 @@
+# Rerank service. Takes reranking CPU off the API pods. For a GPU node pool,
+# uncomment nodeSelector/tolerations and the GPU limit, and build the image
+# with onnxruntime-gpu. Without RERANK_URL the API reranks in-process.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rerank
+  labels: {app: rerank}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: rerank}
+  template:
+    metadata:
+      labels: {app: rerank}
+    spec:
+      # nodeSelector: {agentpool: gpu}
+      # tolerations: [{key: sku, operator: Equal, value: gpu, effect: NoSchedule}]
+      containers:
+        - name: rerank
+          image: node-rag
+          command: ["uvicorn", "rag.rerank_service:app", "--host", "0.0.0.0", "--port", "8001"]
+          ports:
+            - {name: http, containerPort: 8001}
+          envFrom:
+            - configMapRef: {name: rag-config}
+          resources:
+            requests: {cpu: "2", memory: 1Gi}
+            limits: {memory: 2Gi}   # add nvidia.com/gpu: 1 on a GPU pool
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rerank
+spec:
+  selector: {app: rerank}
+  ports:
+    - {name: http, port: 8001, targetPort: http}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rerank
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: rerank}
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}

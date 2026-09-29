@@ -1,0 +1,9 @@
+.venv
+.cache
+.pytest_cache
+**/__pycache__
+data/blobs
+data/eval
+.env
+*.pdf
+backups

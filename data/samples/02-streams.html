@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Node.js Streams Cheat Sheet</title>
+  <style>body{font-family:sans-serif;max-width:800px;margin:auto}nav,footer{color:#888}</style>
+</head>
+<body>
+  <nav>Home · Guides · Streams · API Reference</nav>
+
+  <article>
+    <h1>Node.js Streams Cheat Sheet</h1>
+    <p>Streams process data piece by piece instead of loading it all into memory.
+       A 4&nbsp;GB log file can be read with a few kilobytes of RAM.</p>
+
+    <h2>The four stream types</h2>
+    <table border="1" cellpadding="6">
+      <thead><tr><th>Type</th><th>Direction</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Readable</td><td>source of data</td><td><code>fs.createReadStream()</code></td></tr>
+        <tr><td>Writable</td><td>destination</td><td><code>fs.createWriteStream()</code>, <code>res</code> in HTTP</td></tr>
+        <tr><td>Duplex</td><td>both, independent</td><td><code>net.Socket</code></td></tr>
+        <tr><td>Transform</td><td>both, output derived from input</td><td><code>zlib.createGzip()</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Backpressure</h2>
+    <p>When a writable stream's buffer passes its <code>highWaterMark</code>
+       (16&nbsp;KB by default for byte streams, 16 objects in object mode),
+       <code>write()</code> returns <code>false</code>. The producer should pause
+       until the <code>'drain'</code> event fires.</p>
+
+    <h2>Use pipeline, not pipe</h2>
+    <p><code>stream.pipeline()</code> forwards errors and destroys every stream
+       when one fails. Plain <code>.pipe()</code> does not, which leaks file handles.</p>
+    <pre><code>const { pipeline } = require('node:stream/promises');
+const fs = require('node:fs');
+const zlib = require('node:zlib');
+
+await pipeline(
+  fs.createReadStream('access.log'),
+  zlib.createGzip(),
+  fs.createWriteStream('access.log.gz')
+);</code></pre>
+  </article>
+
+  <footer>© 2026 Example Docs · Privacy · Contact</footer>
+</body>
+</html>

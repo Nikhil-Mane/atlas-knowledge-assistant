@@ -1,0 +1,46 @@
+From: Priya Sharma <priya.sharma@example.com>
+To: backend-team@example.com
+Subject: Incident summary: memory leak in order-service
+Date: Mon, 14 Sep 2026 09:30:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0189403043391147322=="
+
+--===============0189403043391147322==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Hi team,
+
+Short summary of Friday's incident in order-service.
+
+What happened: memory grew from 300 MB to 1.8 GB over 6 hours and the
+pods were OOM-killed. Logs showed 'MaxListenersExceededWarning: Possible
+EventEmitter memory leak detected. 11 message listeners added'.
+
+Root cause: every HTTP request called redisSubscriber.on('message', ...)
+and never removed the listener, so listeners and their closures piled up.
+
+Fix: register the listener once at startup, and use emitter.once() or
+emitter.off() for per-request listeners. We also added a heap snapshot
+alert using 'node --heapsnapshot-near-heap-limit=2'.
+
+The full postmortem is attached.
+
+Thanks,
+Priya
+
+--===============0189403043391147322==
+Content-Type: text/plain
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="postmortem.txt"
+MIME-Version: 1.0
+
+UE9TVE1PUlRFTSAtIG9yZGVyLXNlcnZpY2UgbWVtb3J5IGxlYWsKRGV0ZWN0aW9uOiBHcmFmYW5h
+IGFsZXJ0IG9uIGNvbnRhaW5lciBtZW1vcnkgPiAxLjUgR0IuClRpbWUgdG8gZGV0ZWN0OiA2IGhv
+dXJzLiBUaW1lIHRvIG1pdGlnYXRlOiA0MCBtaW51dGVzIChyb2xsYmFjaykuCkFjdGlvbiBpdGVt
+czoKIDEuIEFkZCBhIGxpbnQgcnVsZSB0aGF0IGZsYWdzIC5vbigpIGluc2lkZSByZXF1ZXN0IGhh
+bmRsZXJzLgogMi4gTG9hZCB0ZXN0IGV2ZXJ5IHJlbGVhc2UgZm9yIDIgaG91cnMgYW5kIGNvbXBh
+cmUgaGVhcCBzaXplLgogMy4gQ2FwdHVyZSBoZWFwIHNuYXBzaG90cyB3aXRoIENocm9tZSBEZXZU
+b29scyBhbmQgZGlmZiB0aGVtLgo=
+
+--===============0189403043391147322==--

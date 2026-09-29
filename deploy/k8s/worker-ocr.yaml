@@ -1,0 +1,50 @@
+# OCR workers wait on the vision API, so few pods each run several calls in
+# parallel (OCR_CONCURRENCY). The shared VISION_RPM_LIMIT caps them all.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-ocr
+  labels: {app: worker-ocr}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-ocr}
+  template:
+    metadata:
+      labels: {app: worker-ocr}
+    spec:
+      terminationGracePeriodSeconds: 600
+      containers:
+        - name: worker
+          image: node-rag
+          command: ["celery", "-A", "rag.worker", "worker", "-Q", "ocr_vision",
+                    "--concurrency", "2", "--loglevel", "INFO"]
+          envFrom:
+            - configMapRef: {name: rag-config}
+            - secretRef: {name: rag-secrets}
+          env:
+            - {name: OCR_CONCURRENCY, value: "6"}
+          resources:
+            requests: {cpu: 500m, memory: 1Gi}
+            limits: {memory: 3Gi}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 2Gi}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-ocr
+spec:
+  scaleTargetRef: {name: worker-ocr}
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  cooldownPeriod: 600
+  triggers:
+    - type: redis
+      metadata:
+        listName: ocr_vision
+        listLength: "10"
+      authenticationRef: {name: redis-auth}

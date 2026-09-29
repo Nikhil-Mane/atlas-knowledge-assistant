@@ -1,0 +1,18 @@
+# kubectl apply -k deploy/k8s     (after creating the secret: see deploy/README.md)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: node-rag
+resources:
+  - namespace.yaml
+  - config.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - worker-parse.yaml
+  - worker-ocr.yaml
+  - rerank.yaml
+  - ingress.yaml
+  - purge-cronjob.yaml
+images:
+  - name: node-rag
+    newName: myregistry.azurecr.io/node-rag     # your Azure Container Registry
+    newTag: "1.0.0"

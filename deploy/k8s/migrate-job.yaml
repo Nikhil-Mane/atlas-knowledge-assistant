@@ -1,0 +1,22 @@
+# Run once per release, before rolling out new API/worker pods:
+#   kubectl -n node-rag delete job migrate --ignore-not-found && kubectl apply -k deploy/k8s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: node-rag
+          command: ["python", "scripts/bootstrap.py"]
+          envFrom:
+            - configMapRef: {name: rag-config}
+            - secretRef: {name: rag-secrets}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}

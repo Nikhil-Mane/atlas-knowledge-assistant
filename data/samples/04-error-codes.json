@@ -1,0 +1,54 @@
+{
+  "title": "Common Node.js error codes",
+  "source": "Team troubleshooting guide",
+  "errors": [
+    {
+      "code": "ERR_REQUIRE_ESM",
+      "category": "modules",
+      "meaning": "require() was used to load an ES module.",
+      "fix": "Use dynamic import(), convert the caller to ESM, or use a Node.js version that supports require(esm)."
+    },
+    {
+      "code": "ERR_MODULE_NOT_FOUND",
+      "category": "modules",
+      "meaning": "An ES module import path could not be resolved.",
+      "fix": "ESM imports need the full file extension, for example import './utils.js'."
+    },
+    {
+      "code": "EADDRINUSE",
+      "category": "network",
+      "meaning": "The port is already in use by another process.",
+      "fix": "Stop the other process or choose another port. On Windows: netstat -ano | findstr :3000"
+    },
+    {
+      "code": "ECONNREFUSED",
+      "category": "network",
+      "meaning": "The target host actively refused the connection.",
+      "fix": "Check that the database or service is running and listening on the expected host and port."
+    },
+    {
+      "code": "ENOENT",
+      "category": "filesystem",
+      "meaning": "No such file or directory.",
+      "fix": "Build paths with path.join(__dirname, ...) instead of relying on the current working directory."
+    },
+    {
+      "code": "EMFILE",
+      "category": "filesystem",
+      "meaning": "Too many open files for the process.",
+      "fix": "Close streams properly, use stream.pipeline(), or limit concurrency with a queue."
+    },
+    {
+      "code": "ERR_HTTP_HEADERS_SENT",
+      "category": "http",
+      "meaning": "Headers were set after the response was already sent.",
+      "fix": "Return after calling res.send() or res.json() so the handler does not respond twice."
+    },
+    {
+      "code": "ERR_UNHANDLED_REJECTION",
+      "category": "process",
+      "meaning": "A promise rejected with no catch handler. Since Node.js 15 this crashes the process by default.",
+      "fix": "Add try/catch around await, or a .catch() on the promise."
+    }
+  ]
+}

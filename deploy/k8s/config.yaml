@@ -1,0 +1,37 @@
+# Non-secret settings shared by API and workers. Secrets (keys, connection
+# strings) live in the `rag-secrets` Secret: see deploy/README.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+data:
+  LLM_PROVIDER: azure
+  AZURE_OPENAI_API_VERSION: "2024-10-21"
+  AZURE_EMBEDDING_DEPLOYMENT: text-embedding-3-small
+  AZURE_CHAT_DEPLOYMENT: gpt-4o
+  AZURE_FAST_DEPLOYMENT: gpt-4o-mini
+  AZURE_VISION_DEPLOYMENT: gpt-4o-mini
+  EMBEDDING_DIM: "1024"
+  QDRANT_COLLECTION: docs
+  QDRANT_SHARDS: "6"                  # fixed at creation: 6 divides across 2, 3 or 6 nodes
+  QDRANT_REPLICAS: "2"
+  BLOB_BACKEND: azure
+  AZURE_BLOB_CONTAINER: rag-raw
+  AUTH_MODE: keys
+  INGEST_MODE: queue
+  BUDGET_SCOPE: daily
+  RATE_LIMIT_ENABLED: "true"
+  EMBED_TPM_LIMIT: "800000"           # keep below your deployment quotas
+  VISION_RPM_LIMIT: "300"
+  CHAT_RPM_LIMIT: "2000"
+  CHAT_TPM_LIMIT: "2000000"
+  PDF_PARSER: docling
+  RERANK_URL: http://rerank:8001      # remove to rerank inside the API pods
+  LOG_JSON: "true"
+  PII_INGEST_POLICY: tag
+  PII_QUERY_POLICY: storage
+  GUARD_INPUT_POLICY: block
+  GUARD_DOC_INJECTION: tag
+  CHAT_RETENTION_DAYS: "30"
+  HSTS: "true"
+  RAG_CACHE_DIR: /cache

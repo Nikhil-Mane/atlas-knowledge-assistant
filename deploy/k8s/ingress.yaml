@@ -1,0 +1,26 @@
+# HTTPS entry point (ingress-nginx + cert-manager). SSE needs buffering off
+# and long read timeouts; uploads need a larger body limit.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /metrics { deny all; }
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [rag.example.com]
+      secretName: rag-tls
+  rules:
+    - host: rag.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: api, port: {name: http}}

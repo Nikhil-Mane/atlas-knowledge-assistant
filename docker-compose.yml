@@ -1,0 +1,172 @@
+# RAG platform: infrastructure + (profile "app") API and workers.
+#
+#   docker compose up -d                        Qdrant, Postgres, Redis only
+#   docker compose --profile app up -d --build  + API, parse workers, OCR worker, Flower
+#   docker compose --profile app up -d --scale worker-parse=4   more parse workers
+#
+# Memory limits fit a 4 GB Docker Desktop VM (infra only). The app profile
+# needs ~8 GB more; on a server sized for 10K docs/day see `scripts/capacity.py`.
+
+name: node-rag
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"   # REST + dashboard
+      - "127.0.0.1:6334:6334"   # gRPC (faster bulk upserts)
+    environment:
+      # Keep payloads on disk; only quantized vectors stay in RAM.
+      QDRANT__STORAGE__ON_DISK_PAYLOAD: "true"
+      # Large upsert batches (512 chunks x payload) need more than the 32 MB default.
+      QDRANT__SERVICE__MAX_REQUEST_SIZE_MB: "64"
+      QDRANT__LOG_LEVEL: "INFO"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+    # Enough connections for API replicas + 16 worker processes, each with a small pool.
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=128MB
+      -c work_mem=8MB
+      -c synchronous_commit=off
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    # Celery broker: jobs must survive restarts (AOF) and must never be evicted.
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    mem_limit: 320m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # Local Azure Storage emulator, for testing BLOB_BACKEND=azure without an account.
+  azurite:
+    profiles: ["azurite"]
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+    ports:
+      - "127.0.0.1:10000:10000"
+
+  # ---------------------------------------------------------------- app ----
+  # One-shot: apply database migrations and create the collection before the app starts.
+  migrate:
+    profiles: ["app"]
+    build: .
+    image: node-rag:latest
+    env_file: .env
+    environment: &app_env
+      QDRANT_URL: http://qdrant:6333
+      POSTGRES_DSN: postgresql+psycopg://rag:rag@postgres:5432/rag
+      REDIS_URL: redis://redis:6379/0
+      BLOB_ROOT: /data/blobs
+      INGEST_MODE: queue
+      AUTH_MODE: ${AUTH_MODE:-keys}   # create keys: docker compose exec api python scripts/api_keys.py create ...
+      BUDGET_SCOPE: daily           # caps shared by every process via Redis
+      RATE_LIMIT_ENABLED: "true"    # shared TPM/RPM windows: no 429 storms
+      LOG_JSON: "true"
+    command: python scripts/bootstrap.py
+    volumes:
+      - blobs:/data/blobs
+    depends_on:
+      qdrant: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  api:
+    profiles: ["app"]
+    build: .
+    image: node-rag:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: *app_env
+    volumes: &app_volumes
+      - blobs:/data/blobs           # uploads written by the API, read by workers
+      - model_cache:/cache          # Docling/fastembed models + embedding/OCR caches
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on: &app_deps
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  worker-parse:
+    profiles: ["app"]
+    image: node-rag:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on: *app_deps
+    # CPU-bound Docling parsing: one process per core. Scale with --scale.
+    command: celery -A rag.worker worker -Q parse_cpu --concurrency ${PARSE_CONCURRENCY:-2} --loglevel INFO
+    mem_limit: 3g
+
+  worker-ocr:
+    profiles: ["app"]
+    image: node-rag:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on: *app_deps
+    # Waits on the vision API: few processes, each with OCR_CONCURRENCY parallel calls.
+    command: celery -A rag.worker worker -Q ocr_vision --concurrency ${OCR_WORKERS:-2} --loglevel INFO
+    mem_limit: 2g
+
+  flower:
+    profiles: ["app"]
+    image: mher/flower:2.0
+    restart: unless-stopped
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - "127.0.0.1:5555:5555"
+    depends_on:
+      redis: {condition: service_healthy}
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  redis_data:
+  blobs:
+  model_cache:

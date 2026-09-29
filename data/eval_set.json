@@ -1,0 +1,16 @@
+[
+  {"id": "01", "question": "How many threads does the libuv thread pool have by default?", "expected_file": "01-event-loop.md", "keywords": ["4"]},
+  {"id": "02", "question": "Why should I use stream.pipeline() instead of .pipe()?", "expected_file": "02-streams.html", "keywords": ["error"]},
+  {"id": "03", "question": "Which package is suggested as an alternative to bcrypt?", "expected_file": "03-npm-packages.csv", "keywords": ["argon2"]},
+  {"id": "04", "question": "What does EMFILE mean and how do I fix it?", "expected_file": "04-error-codes.json", "keywords": ["too many open files"]},
+  {"id": "05", "question": "How does the sample Express server handle SIGTERM?", "expected_file": "05-express-server.js", "keywords": ["server.close"]},
+  {"id": "06", "question": "How often should API keys be rotated?", "expected_file": "06-security-checklist.txt", "keywords": ["90"]},
+  {"id": "07", "question": "What caused the order-service memory leak?", "expected_file": "07-incident-email.eml", "keywords": ["listener"]},
+  {"id": "07b", "question": "What was the time to mitigate in the order-service postmortem?", "expected_file": "07-incident-email.eml", "keywords": ["40 minutes"]},
+  {"id": "08", "question": "How do I get __dirname in an ES module?", "expected_file": "08-modules-guide.pdf", "keywords": ["import.meta.dirname"]},
+  {"id": "09", "question": "What does Buffer.byteLength('héllo') return?", "expected_file": "09-buffers-handwritten-scan.pdf", "keywords": ["6"]},
+  {"id": "10", "question": "Which PM2 command starts one worker per CPU?", "expected_file": "10-cluster-whiteboard.png", "keywords": ["pm2 start app.js -i max"]},
+  {"id": "11", "question": "Which HTTP status should a duplicate unique value return?", "expected_file": "11-error-handling.docx", "keywords": ["409"]},
+  {"id": "12", "question": "What should I use instead of await inside a for loop when calls are independent?", "expected_file": "12-async-patterns.pptx", "keywords": ["Promise.all"]},
+  {"id": "13", "question": "When does Node.js 22 reach end of life?", "expected_file": "13-lts-schedule.xlsx", "keywords": ["2027-04-30"]}
+]

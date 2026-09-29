@@ -1,0 +1,26 @@
+# Nightly retention: delete conversations older than CHAT_RETENTION_DAYS.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: purge-conversations
+spec:
+  schedule: "15 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: purge
+              image: node-rag
+              command: ["python", "scripts/purge.py", "--yes"]
+              envFrom:
+                - configMapRef: {name: rag-config}
+                - secretRef: {name: rag-secrets}
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {memory: 512Mi}

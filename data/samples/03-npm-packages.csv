@@ -1,0 +1,16 @@
+package,category,purpose,install_command,alternative
+express,web framework,Minimal HTTP server with routing and middleware,npm install express,fastify
+fastify,web framework,High-performance HTTP server with schema validation,npm install fastify,express
+zod,validation,TypeScript-first schema validation for request bodies,npm install zod,joi
+pino,logging,Low-overhead structured JSON logger,npm install pino,winston
+winston,logging,Logger with multiple transports (file / console / HTTP),npm install winston,pino
+prisma,database,Type-safe ORM with migrations,npm install prisma --save-dev,drizzle-orm
+pg,database,PostgreSQL client for Node.js,npm install pg,postgres
+ioredis,cache,Redis client with cluster and sentinel support,npm install ioredis,redis
+bullmq,queue,Redis-backed job queue with retries and rate limiting,npm install bullmq,bee-queue
+jsonwebtoken,auth,Sign and verify JSON Web Tokens,npm install jsonwebtoken,jose
+bcrypt,auth,Password hashing with salt rounds,npm install bcrypt,argon2
+dotenv,config,Load environment variables from a .env file,npm install dotenv,node --env-file
+vitest,testing,Fast unit test runner compatible with Jest APIs,npm install -D vitest,jest
+supertest,testing,HTTP assertions for testing Express apps,npm install -D supertest,node:test + fetch
+nodemon,tooling,Restart the app when files change,npm install -D nodemon,node --watch
